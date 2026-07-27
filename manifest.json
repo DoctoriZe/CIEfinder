@@ -1,0 +1,17 @@
+{
+  "name": "CIEfinder by DoctoriZe",
+  "short_name": "CIEfinder",
+  "description": "Buscador de códigos CIE-9 y CIE-10 en español e inglés, con historial y favoritos.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F7FA",
+  "theme_color": "#0D4C77",
+  "lang": "es",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
