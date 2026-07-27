@@ -5,6 +5,7 @@
   const LS_HISTORY = "cief_history_v1";
   const LS_FAVORITES = "cief_favorites_v1";
   const LS_CUSTOM = "cief_custom_data_v1";
+  const LS_IMPORT_META = "cief_import_meta_v1";
 
   // ---------- Datos ----------
   function loadCustomData(){
@@ -13,7 +14,8 @@
       return raw ? JSON.parse(raw) : [];
     }catch(e){ return []; }
   }
-  const ALL_CODES = CIE_BASE_DATA.concat(loadCustomData());
+  let ALL_CODES = CIE_BASE_DATA.concat(loadCustomData());
+  function rebuildAllCodes(){ ALL_CODES = CIE_BASE_DATA.concat(loadCustomData()); }
 
   function keyOf(item){ return item.sys + ":" + item.code; }
 
@@ -72,7 +74,8 @@
     chips: document.querySelectorAll(".chip"),
     sheetOverlay: document.getElementById("sheetOverlay"),
     sheet: document.getElementById("sheet"),
-    toast: document.getElementById("toast")
+    toast: document.getElementById("toast"),
+    importFile: document.getElementById("importFile")
   };
 
   // ---------- Búsqueda ----------
@@ -247,6 +250,136 @@
     showToast(favorites.has(key) ? "Añadido a favoritos" : "Quitado de favoritos");
   }
 
+  // ---------- Render: Ajustes / Importar catálogo ----------
+  function renderSettings(){
+    const customCount = loadCustomData().length;
+    const meta = readJSON(LS_IMPORT_META, null);
+    el.content.innerHTML = `
+      <div class="section-title">Catálogo de códigos</div>
+      <div class="settings-card">
+        <div class="settings-row"><span>Códigos base incluidos</span><b>${CIE_BASE_DATA.length}</b></div>
+        <div class="settings-row"><span>Códigos importados</span><b>${customCount}</b></div>
+        ${meta ? `<div class="settings-row"><span>Última importación</span><b>${escapeHtml(meta.name)} · ${timeAgo(meta.ts)}</b></div>` : ""}
+      </div>
+      <div class="settings-card">
+        <p class="hint" style="margin:0 0 12px;">
+          Importa un catálogo CIE-9/CIE-10 actualizado en formato <b>JSON</b> o <b>CSV</b>.
+          Cada código debe incluir sistema (CIE9/CIE10), código, nombre en español e inglés.
+          Si un código ya existe, se actualiza con los datos nuevos.
+        </p>
+        <button class="btn fav" id="importBtn" style="width:100%;">⭳ Importar catálogo (JSON/CSV)</button>
+        ${customCount > 0 ? `<button class="link-btn" id="clearImportBtn" style="margin-top:10px;">Borrar códigos importados</button>` : ""}
+      </div>
+      <div class="settings-card">
+        <p class="hint" style="margin:0;">
+          Formato JSON esperado: una lista de objetos <code>{"sys":"CIE10","code":"J45.9","es":"Asma","en":"Asthma"}</code>.<br><br>
+          Formato CSV esperado: primera fila de cabecera <code>sys,code,es,en</code>, una fila por código.
+        </p>
+      </div>
+    `;
+    document.getElementById("importBtn").addEventListener("click", () => el.importFile.click());
+    const clearBtn = document.getElementById("clearImportBtn");
+    if (clearBtn) clearBtn.addEventListener("click", () => {
+      writeJSON(LS_CUSTOM, []);
+      writeJSON(LS_IMPORT_META, null);
+      rebuildAllCodes();
+      showToast("Catálogo importado eliminado");
+      renderSettings();
+    });
+  }
+
+  // Parseo CSV simple (soporta campos entre comillas con comas dentro)
+  function parseCSV(text){
+    const rows = [];
+    let row = [], field = "", inQuotes = false;
+    for (let i = 0; i < text.length; i++){
+      const c = text[i];
+      if (inQuotes){
+        if (c === '"' && text[i+1] === '"'){ field += '"'; i++; }
+        else if (c === '"'){ inQuotes = false; }
+        else field += c;
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ','){ row.push(field); field = ""; }
+        else if (c === '\n' || c === '\r'){
+          if (field !== "" || row.length){ row.push(field); rows.push(row); }
+          field = ""; row = [];
+          if (c === '\r' && text[i+1] === '\n') i++;
+        } else field += c;
+      }
+    }
+    if (field !== "" || row.length){ row.push(field); rows.push(row); }
+    if (!rows.length) return [];
+    const header = rows[0].map(h => h.trim().toLowerCase());
+    return rows.slice(1).filter(r => r.length && r.some(c => c.trim() !== "")).map(r => {
+      const obj = {};
+      header.forEach((h, idx) => obj[h] = (r[idx] || "").trim());
+      return obj;
+    });
+  }
+
+  function normalizeSys(s){
+    const v = (s||"").toString().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (v === "CIE10" || v === "ICD10") return "CIE10";
+    if (v === "CIE9" || v === "ICD9") return "CIE9";
+    return null;
+  }
+
+  function validateEntries(list){
+    const valid = [];
+    let skipped = 0;
+    list.forEach(raw => {
+      const sys = normalizeSys(raw.sys || raw.system || raw.sistema);
+      const code = (raw.code || raw.codigo || raw.código || "").toString().trim();
+      const es = (raw.es || raw.español || raw.nombre_es || "").toString().trim();
+      const en = (raw.en || raw.ingles || raw.inglés || raw.nombre_en || "").toString().trim();
+      if (sys && code && (es || en)){
+        valid.push({ sys, code, es: es || en, en: en || es });
+      } else {
+        skipped++;
+      }
+    });
+    return { valid, skipped };
+  }
+
+  function importCatalog(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        let entries;
+        if (file.name.toLowerCase().endsWith(".csv")) {
+          entries = parseCSV(reader.result);
+        } else {
+          const parsed = JSON.parse(reader.result);
+          entries = Array.isArray(parsed) ? parsed : (parsed.codes || parsed.data || []);
+        }
+        const { valid, skipped } = validateEntries(entries);
+        if (valid.length === 0){
+          showToast("No se encontraron códigos válidos en el archivo");
+          return;
+        }
+        const existing = loadCustomData();
+        const map = new Map(existing.map(i => [keyOf(i), i]));
+        valid.forEach(i => map.set(keyOf(i), i));
+        const merged = Array.from(map.values());
+        writeJSON(LS_CUSTOM, merged);
+        writeJSON(LS_IMPORT_META, { name: file.name, ts: Date.now() });
+        rebuildAllCodes();
+        showToast(`Importados ${valid.length} códigos${skipped ? ` (${skipped} omitidos)` : ""}`);
+        renderSettings();
+      } catch (e) {
+        showToast("El archivo no se pudo leer. Revisa el formato.");
+      }
+    };
+    reader.readAsText(file, "UTF-8");
+  }
+
+  el.importFile.addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) importCatalog(file);
+    el.importFile.value = "";
+  });
+
   // ---------- Hoja de detalle ----------
   function openDetail(item){
     const fav = favorites.has(keyOf(item));
@@ -314,7 +447,8 @@
     el.tabs.forEach(t => t.classList.toggle("active", t.getAttribute("data-view") === state.view));
     if (state.view === "search") renderSearch();
     else if (state.view === "history") renderHistory();
-    else renderFavorites();
+    else if (state.view === "favorites") renderFavorites();
+    else renderSettings();
   }
 
   function goToSearch(query){

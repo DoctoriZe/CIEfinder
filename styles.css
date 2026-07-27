@@ -178,6 +178,20 @@ button{font-family:inherit;}
   border:none;background:none;color:var(--red);font-weight:700;font-size:13.5px;cursor:pointer;padding:4px 6px;
 }
 
+/* ---------- Ajustes ---------- */
+.settings-card{
+  background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:16px;margin-bottom:14px;
+}
+.settings-row{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:14px;color:var(--ink);padding:6px 0;
+}
+.settings-row + .settings-row{border-top:1px solid var(--line);}
+.settings-card code{
+  background:var(--bg);border-radius:6px;padding:1px 5px;font-size:12.5px;
+}
+
 /* ---------- Detail sheet ---------- */
 .sheet-overlay{
   position:fixed;inset:0;background:rgba(10,20,30,.45);
