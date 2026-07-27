@@ -276,6 +276,7 @@
           Formato CSV esperado: primera fila de cabecera <code>sys,code,es,en</code>, una fila por código.
         </p>
       </div>
+      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.2</p>
     `;
     document.getElementById("importBtn").addEventListener("click", () => el.importFile.click());
     const clearBtn = document.getElementById("clearImportBtn");
