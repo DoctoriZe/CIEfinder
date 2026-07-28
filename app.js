@@ -276,7 +276,7 @@
           Formato CSV esperado: primera fila de cabecera <code>sys,code,es,en</code>, una fila por código.
         </p>
       </div>
-      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.2</p>
+      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.2.2</p>
     `;
     document.getElementById("importBtn").addEventListener("click", () => el.importFile.click());
     const clearBtn = document.getElementById("clearImportBtn");
@@ -344,17 +344,27 @@
   }
 
   function importCatalog(file){
+    console.log("importCatalog iniciado con archivo:", file.name);
     const reader = new FileReader();
+    reader.onerror = () => {
+      console.error("FileReader error:", reader.error);
+      showToast("No se pudo leer el archivo. Inténtalo de nuevo.");
+    };
     reader.onload = () => {
+      console.log("Archivo leído, tamaño:", reader.result.length);
       try {
         let entries;
         if (file.name.toLowerCase().endsWith(".csv")) {
+          console.log("Parseando como CSV");
           entries = parseCSV(reader.result);
         } else {
+          console.log("Parseando como JSON");
           const parsed = JSON.parse(reader.result);
           entries = Array.isArray(parsed) ? parsed : (parsed.codes || parsed.data || []);
         }
+        console.log("Entradas parseadas:", entries.length);
         const { valid, skipped } = validateEntries(entries);
+        console.log("Validadas:", valid.length, "| Omitidas:", skipped);
         if (valid.length === 0){
           showToast("No se encontraron códigos válidos en el archivo");
           return;
@@ -366,18 +376,26 @@
         writeJSON(LS_CUSTOM, merged);
         writeJSON(LS_IMPORT_META, { name: file.name, ts: Date.now() });
         rebuildAllCodes();
+        console.log("Importación completada. Total en BD:", merged.length);
         showToast(`Importados ${valid.length} códigos${skipped ? ` (${skipped} omitidos)` : ""}`);
         renderSettings();
       } catch (e) {
+        console.error("Error al importar catálogo:", e.message, e.stack);
         showToast("El archivo no se pudo leer. Revisa el formato.");
       }
     };
+    console.log("Iniciando lectura del archivo...");
     reader.readAsText(file, "UTF-8");
   }
 
   el.importFile.addEventListener("change", (e) => {
     const file = e.target.files && e.target.files[0];
-    if (file) importCatalog(file);
+    if (!file) {
+      console.log("No file selected");
+      return;
+    }
+    console.log("Importing file:", file.name, "size:", file.size);
+    importCatalog(file);
     el.importFile.value = "";
   });
 
