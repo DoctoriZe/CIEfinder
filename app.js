@@ -276,9 +276,22 @@
           Formato CSV esperado: primera fila de cabecera <code>sys,code,es,en</code>, una fila por código.
         </p>
       </div>
-      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.2.6</p>
+      <div class="settings-card">
+        <p class="hint" style="margin:0 0 12px;">
+          Si acabas de subir una versión nueva a GitHub y la app no la muestra
+          (sigue viendo datos o funciones viejas), usa este botón en vez de
+          borrar la caché de Chrome a mano.
+        </p>
+        <button class="btn ghost" id="forceUpdateBtn" style="width:100%;">🔄 Buscar y forzar actualización</button>
+      </div>
+      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.2.7</p>
     `;
     document.getElementById("importBtn").addEventListener("click", () => el.importFile.click());
+    document.getElementById("forceUpdateBtn").addEventListener("click", () => {
+      if (confirm("Esto borrará los datos en caché y recargará la app con la última versión publicada. El historial y los favoritos NO se pierden. ¿Continuar?")) {
+        forceUpdate();
+      }
+    });
     const clearBtn = document.getElementById("clearImportBtn");
     if (clearBtn) clearBtn.addEventListener("click", () => {
       writeJSON(LS_CUSTOM, []);
@@ -515,6 +528,30 @@
       navigator.serviceWorker.register("service-worker.js").catch(()=>{});
     });
   }
+
+  // Fuerza una actualización completa: borra cachés, desregistra el SW viejo
+  // y recarga pidiendo todo de nuevo al servidor. Es el equivalente a
+  // "Borrar datos del sitio" pero desde dentro de la propia app.
+  async function forceUpdate(){
+    try {
+      showToast("Buscando actualizaciones…");
+      if ("caches" in window){
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+      if ("serviceWorker" in navigator){
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+      setTimeout(() => {
+        location.reload(true);
+      }, 300);
+    } catch (e) {
+      console.error("Error al actualizar:", e);
+      showToast("No se pudo actualizar. Cierra y vuelve a abrir la app.");
+    }
+  }
+  window.__ciefinderForceUpdate = forceUpdate;
 
   render();
 })();
