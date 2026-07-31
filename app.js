@@ -284,7 +284,7 @@
         </p>
         <button class="btn ghost" id="forceUpdateBtn" style="width:100%;">🔄 Buscar y forzar actualización</button>
       </div>
-      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.2.7</p>
+      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.2.8</p>
     `;
     document.getElementById("importBtn").addEventListener("click", () => el.importFile.click());
     document.getElementById("forceUpdateBtn").addEventListener("click", () => {
