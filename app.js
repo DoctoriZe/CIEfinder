@@ -19,6 +19,59 @@
 
   function keyOf(item){ return item.sys + ":" + item.code; }
 
+  // ---------- Siglas médicas ----------
+  // Abreviaturas de uso habitual en consulta que se expanden al buscar,
+  // para que "ITU" encuentre lo mismo que "infección urinaria".
+  // Clave y valores ya van sin acentos y en minúsculas (se comparan normalizados).
+  const ABBREVIATIONS = {
+    "itu": ["infeccion tracto urinario", "infeccion urinaria", "infeccion de vias urinarias", "infeccion de orina"],
+    "ivu": ["infeccion vias urinarias", "infeccion urinaria"],
+    "hta": ["hipertension arterial", "hipertension"],
+    "dm": ["diabetes mellitus", "diabetes"],
+    "dm2": ["diabetes mellitus tipo 2", "diabetes tipo 2"],
+    "dm1": ["diabetes mellitus tipo 1", "diabetes tipo 1"],
+    "epoc": ["enfermedad pulmonar obstructiva cronica"],
+    "erc": ["enfermedad renal cronica", "insuficiencia renal cronica"],
+    "irc": ["insuficiencia renal cronica", "enfermedad renal cronica"],
+    "ira": ["insuficiencia respiratoria aguda"],
+    "iam": ["infarto agudo de miocardio", "infarto de miocardio"],
+    "icc": ["insuficiencia cardiaca congestiva", "insuficiencia cardiaca"],
+    "acv": ["accidente cerebrovascular", "ictus"],
+    "avc": ["accidente cerebrovascular", "ictus"],
+    "tce": ["traumatismo craneoencefalico"],
+    "rge": ["reflujo gastroesofagico"],
+    "erge": ["enfermedad por reflujo gastroesofagico", "reflujo gastroesofagico"],
+    "eva": ["accidente cerebrovascular", "ictus"],
+    "tvp": ["trombosis venosa profunda"],
+    "tep": ["tromboembolismo pulmonar", "embolia pulmonar"],
+    "epi": ["enfermedad inflamatoria pelvica"],
+    "hpb": ["hiperplasia prostatica benigna", "hipertrofia de prostata"],
+    "eii": ["enfermedad inflamatoria intestinal"],
+    "sida": ["sindrome de inmunodeficiencia adquirida", "vih"],
+    "vih": ["virus de inmunodeficiencia humana", "sida"],
+    "amenorrea": ["ausencia de menstruacion"],
+    "iva": ["infeccion vias aereas", "infeccion respiratoria"],
+    "ivra": ["infeccion vias respiratorias altas"],
+    "eap": ["edema agudo de pulmon"],
+    "ivrs": ["infeccion vias respiratorias superiores"],
+    "gea": ["gastroenteritis aguda"],
+    "faa": ["faringoamigdalitis aguda"],
+    "otm": ["otitis media"],
+    "hsa": ["hemorragia subaracnoidea"],
+    "hic": ["hemorragia intracraneal"],
+  };
+
+  // Dada una consulta normalizada, devuelve la lista de términos por los que
+  // buscar. Si la consulta coincide con una sigla conocida, se usan SOLO sus
+  // expansiones (no la sigla en sí), porque siglas cortas como "itu" o "dm"
+  // pueden aparecer por casualidad dentro de otras palabras (p.ej. "capítulos").
+  function expandQueryTerms(qNorm){
+    if (ABBREVIATIONS[qNorm]) {
+      return ABBREVIATIONS[qNorm].map(t => normalize(t));
+    }
+    return [qNorm];
+  }
+
   // ---------- Utilidades ----------
   function normalize(str){
     return (str || "")
@@ -79,15 +132,26 @@
   };
 
   // ---------- Búsqueda ----------
+  // Una "frase" (término original o expansión de sigla) coincide con un ítem
+  // si TODAS sus palabras aparecen en el texto del ítem, en cualquier orden
+  // y con lo que sea en medio. Así "infeccion urinaria" encuentra
+  // "Infección DEL tracto urinario" aunque no sea una subcadena exacta.
+  function phraseMatches(text, phrase){
+    const words = phrase.split(/\s+/).filter(Boolean);
+    return words.every(w => text.indexOf(w) !== -1);
+  }
+
   function search(query, filter){
     const q = normalize(query).trim();
     if (!q) return [];
+    const terms = expandQueryTerms(q); // [consulta original] o [expansiones de la sigla]
     return ALL_CODES.filter(item => {
       if (filter !== "ALL" && item.sys !== filter) return false;
       const code = normalize(item.code);
-      const es = normalize(item.es);
-      const en = normalize(item.en);
-      return code.indexOf(q) === 0 || code.indexOf(q) !== -1 || es.indexOf(q) !== -1 || en.indexOf(q) !== -1;
+      const combo = code + " " + normalize(item.es) + " " + normalize(item.en);
+      // Coincidencia directa por código (para que "599.0" siga funcionando igual)
+      if (code.indexOf(q) !== -1) return true;
+      return terms.some(t => phraseMatches(combo, t));
     }).sort((a,b) => {
       // prioriza coincidencias por código exacto/al inicio
       const aCode = normalize(a.code), bCode = normalize(b.code);
@@ -284,7 +348,7 @@
         </p>
         <button class="btn ghost" id="forceUpdateBtn" style="width:100%;">🔄 Buscar y forzar actualización</button>
       </div>
-      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.2.8</p>
+      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.2.9</p>
     `;
     document.getElementById("importBtn").addEventListener("click", () => el.importFile.click());
     document.getElementById("forceUpdateBtn").addEventListener("click", () => {
