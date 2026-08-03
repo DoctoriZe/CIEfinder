@@ -1,4 +1,4 @@
-# CIEfinder by DoctoriZe · v1.2.4
+# CIEfinder by DoctoriZe · v1.3
 
 App web (PWA) para buscar códigos CIE-9 y CIE-10, en español e inglés,
 con historial de búsquedas y favoritos. Funciona sin conexión una vez instalada.
@@ -28,12 +28,16 @@ sin necesidad de saber programar:
 
 ## 3. Ampliar o actualizar el catálogo de códigos
 
-El archivo `data.js` trae **18,715 códigos integrados completamente en ESPAÑOL** (14,333 CIE-10 + 4,382 CIE-9).
+El archivo `data.js` trae **27,439 códigos integrados**, mayoritariamente en español (14,333 CIE-10 + 13,106 CIE-9).
 
 **CIE-10:** 14,333 códigos - Catálogo completo (icdcode.info, descripciones en español)
 
-**CIE-9:** 4,382 códigos  
-- 3,955: CMS v32 oficial de diagnósticos ICD-9-CM (traducidos al español médico)
-- 427: Códigos especiales locales (consultas V, causas externas E, procedimientos)
+**CIE-9:** 13,106 códigos — Manual oficial CIE-9-MC 2014 del Ministerio de Sanidad de España
+(Lista Tabular de Enfermedades, Tomo II), extraído directamente del PDF oficial. Español médico
+profesional real, no traducción automática.
+
+La app también reconoce siglas médicas habituales al buscar (ITU, EPOC, HTA, DM, ACV, Fx, AIT
+y más de 30 más) — escribes la sigla y encuentra los diagnósticos correspondientes sin tener que
+escribir el nombre completo.
 
 Desde Ajustes > Importar catálogo se puede ampliar sin tocar este archivo.
