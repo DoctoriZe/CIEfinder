@@ -1,4 +1,4 @@
-const CACHE_NAME = "ciefinder-v1.3.2";
+const CACHE_NAME = "ciefinder-v1.3.4";
 const ASSETS = [
   "./",
   "./index.html",

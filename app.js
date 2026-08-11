@@ -335,6 +335,7 @@
     const customCount = loadCustomData().length;
     const meta = readJSON(LS_IMPORT_META, null);
     el.content.innerHTML = `
+      <button class="btn ghost" id="backToSearchBtn" style="width:100%;margin-bottom:14px;">← Volver al buscador</button>
       <div class="section-title">Catálogo de códigos</div>
       <div class="settings-card">
         <div class="settings-row"><span>Códigos base incluidos</span><b>${CIE_BASE_DATA.length}</b></div>
@@ -362,10 +363,16 @@
           (sigue viendo datos o funciones viejas), usa este botón en vez de
           borrar la caché de Chrome a mano.
         </p>
-        <button class="btn ghost" id="forceUpdateBtn" style="width:100%;">🔄 Buscar y forzar actualización</button>
+        <button class="btn ghost" id="forceUpdateBtn" style="width:100%;">🔄 Actualizar app a la última versión</button>
       </div>
-      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.3.2</p>
+      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.3.4</p>
+      <p class="hint" style="text-align:center;margin:6px 0 0;">
+        <a href="mailto:doctorize@gmail.com?subject=CIEfinder%20-%20Incidencia%20o%20sugerencia" style="color:var(--navy);text-decoration:underline;">✉️ Incidencias y sugerencias</a>
+      </p>
     `;
+    document.getElementById("backToSearchBtn").addEventListener("click", () => {
+      goToSearch(state.query || "");
+    });
     document.getElementById("importBtn").addEventListener("click", () => el.importFile.click());
     document.getElementById("forceUpdateBtn").addEventListener("click", () => {
       if (confirm("Esto borrará los datos en caché y recargará la app con la última versión publicada. El historial y los favoritos NO se pierden. ¿Continuar?")) {
