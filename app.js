@@ -57,6 +57,8 @@
     "fx": ["fractura"],
     "ait": ["isquemia cerebral transitoria", "ataque isquemico transitorio", "accidente isquemico transitorio"],
     "faa": ["faringoamigdalitis aguda", "amigdalitis aguda", "faringitis aguda"],
+    "oncologico": ["tumor maligno", "neoplasia maligna"],
+    "oncologica": ["tumor maligno", "neoplasia maligna"],
     "otm": ["otitis media"],
     "hsa": ["hemorragia subaracnoidea"],
     "hic": ["hemorragia intracraneal"],
@@ -67,8 +69,21 @@
   // expansiones (no la sigla en sí), porque siglas cortas como "itu" o "dm"
   // pueden aparecer por casualidad dentro de otras palabras (p.ej. "capítulos").
   function expandQueryTerms(qNorm){
+    // Coincidencia exacta de toda la consulta con una sigla (comportamiento previo)
     if (ABBREVIATIONS[qNorm]) {
       return ABBREVIATIONS[qNorm].map(t => normalize(t));
+    }
+    // Si la consulta tiene varias palabras y alguna de ellas es una sigla conocida
+    // (p.ej. "paciente oncologico"), se usan las expansiones de esa sigla,
+    // ignorando el resto de palabras sueltas que no aportan a la búsqueda clínica.
+    const words = qNorm.split(/\s+/).filter(Boolean);
+    if (words.length > 1) {
+      const found = words.filter(w => ABBREVIATIONS[w]);
+      if (found.length) {
+        const expansions = [];
+        found.forEach(w => ABBREVIATIONS[w].forEach(t => expansions.push(normalize(t))));
+        return expansions;
+      }
     }
     return [qNorm];
   }
@@ -349,7 +364,7 @@
         </p>
         <button class="btn ghost" id="forceUpdateBtn" style="width:100%;">🔄 Buscar y forzar actualización</button>
       </div>
-      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.3</p>
+      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.3.2</p>
     `;
     document.getElementById("importBtn").addEventListener("click", () => el.importFile.click());
     document.getElementById("forceUpdateBtn").addEventListener("click", () => {
