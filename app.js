@@ -38,6 +38,7 @@
     "icc": ["insuficiencia cardiaca congestiva", "insuficiencia cardiaca"],
     "acv": ["accidente cerebrovascular", "ictus", "enfermedad cerebrovascular"],
     "avc": ["accidente cerebrovascular", "ictus", "enfermedad cerebrovascular"],
+    "ictus": ["accidente cerebrovascular", "enfermedad cerebrovascular", "isquemia cerebral"],
     "tce": ["traumatismo craneoencefalico", "traumatismo intracraneal"],
     "rge": ["reflujo gastroesofagico", "reflujo esofagico"],
     "erge": ["enfermedad por reflujo gastroesofagico", "reflujo gastroesofagico", "reflujo esofagico"],
@@ -365,7 +366,7 @@
         </p>
         <button class="btn ghost" id="forceUpdateBtn" style="width:100%;">🔄 Actualizar app a la última versión</button>
       </div>
-      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.3.4</p>
+      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.3.5</p>
       <p class="hint" style="text-align:center;margin:6px 0 0;">
         <a href="mailto:doctorize@gmail.com?subject=CIEfinder%20-%20Incidencia%20o%20sugerencia" style="color:var(--navy);text-decoration:underline;">✉️ Incidencias y sugerencias</a>
       </p>
