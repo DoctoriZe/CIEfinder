@@ -19,6 +19,33 @@
 
   function keyOf(item){ return item.sys + ":" + item.code; }
 
+  // ---------- Ordenación de listas (búsqueda y favoritos) ----------
+  function applySortMode(items){
+    const sorted = items.slice();
+    if (state.sortMode === "alpha") {
+      sorted.sort((a, b) => normalize(a.es).localeCompare(normalize(b.es)));
+    } else {
+      sorted.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: "base" }));
+    }
+    return sorted;
+  }
+
+  function toggleSortMode(){
+    state.sortMode = state.sortMode === "alpha" ? "numeric" : "alpha";
+    writeJSON(LS_SORT_MODE, state.sortMode);
+    render();
+  }
+
+  function sortToggleHtml(){
+    const isAlpha = state.sortMode === "alpha";
+    return `
+      <button class="sort-toggle" id="sortToggleBtn" aria-label="Cambiar orden">
+        ${isAlpha ? "A→Z" : "0→9"}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M7 16V4M7 4L3.5 7.5M7 4l3.5 3.5M17 8v12M17 20l3.5-3.5M17 20l-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>${isAlpha ? "Alfabético" : "Por código"}</span>
+      </button>`;
+  }
+
   // ---------- Siglas médicas ----------
   // Abreviaturas de uso habitual en consulta que se expanden al buscar,
   // para que "ITU" encuentre lo mismo que "infección urinaria".
@@ -125,10 +152,14 @@
   }
 
   // ---------- Estado ----------
+  const LS_SORT_MODE = "cief_sort_mode_v1";
+  const PAGE_SIZE = 60;
   const state = {
     view: "search",
     filter: "ALL",
-    query: ""
+    query: "",
+    sortMode: readJSON(LS_SORT_MODE, "numeric"), // "numeric" | "alpha"
+    resultsLimit: PAGE_SIZE
   };
 
   let favorites = new Set(readJSON(LS_FAVORITES, []));
@@ -162,6 +193,19 @@
     const q = normalize(query).trim();
     if (!q) return [];
     const terms = expandQueryTerms(q); // [consulta original] o [expansiones de la sigla]
+    // Puntúa cuán relevante es una coincidencia, para que "hipo" como palabra
+    // completa (786.8 Hipo) no quede enterrado bajo "hipofaringe", "hipófisis",
+    // etc., que solo contienen "hipo" como parte de una palabra más larga.
+    function relevance(item){
+      const code = normalize(item.code);
+      const es = normalize(item.es);
+      const en = normalize(item.en);
+      if (code.indexOf(q) === 0) return 0; // código empieza por la búsqueda
+      const wordRegex = new RegExp("(^|[^a-z0-9])" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "([^a-z0-9]|$)");
+      if (wordRegex.test(es) || wordRegex.test(en)) return 1; // palabra completa
+      if (code.indexOf(q) !== -1) return 2; // coincide en el código, en medio
+      return 3; // coincide solo como subcadena dentro de otra palabra
+    }
     return ALL_CODES.filter(item => {
       if (filter !== "ALL" && item.sys !== filter) return false;
       const code = normalize(item.code);
@@ -169,13 +213,7 @@
       // Coincidencia directa por código (para que "599.0" siga funcionando igual)
       if (code.indexOf(q) !== -1) return true;
       return terms.some(t => phraseMatches(combo, t));
-    }).sort((a,b) => {
-      // prioriza coincidencias por código exacto/al inicio
-      const aCode = normalize(a.code), bCode = normalize(b.code);
-      const aStarts = aCode.indexOf(q) === 0 ? 0 : 1;
-      const bStarts = bCode.indexOf(q) === 0 ? 0 : 1;
-      return aStarts - bStarts;
-    }).slice(0, 60);
+    }).sort((a,b) => relevance(a) - relevance(b));
   }
 
   function addHistory(query){
@@ -204,8 +242,8 @@
       );
       return;
     }
-    const results = search(q, state.filter);
-    if (results.length === 0){
+    const allResults = applySortMode(search(q, state.filter));
+    if (allResults.length === 0){
       el.content.innerHTML = emptyState(
         `<path d="M12 9v4M12 16h.01" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/>`,
         "Sin resultados",
@@ -213,10 +251,20 @@
       );
       return;
     }
+    const results = allResults.slice(0, state.resultsLimit);
+    const hasMore = allResults.length > results.length;
     el.content.innerHTML =
-      `<div class="section-title">${results.length} resultado${results.length===1?"":"s"}</div>` +
-      `<div class="result-list">${results.map(cardHtml).join("")}</div>`;
+      `<div class="section-title row-between"><span>${results.length} de ${allResults.length} resultado${allResults.length===1?"":"s"}</span>${sortToggleHtml()}</div>` +
+      `<div class="result-list">${results.map(cardHtml).join("")}</div>` +
+      (hasMore ? `<button class="btn ghost" id="loadMoreBtn" style="width:100%;margin-top:12px;">Ver ${Math.min(PAGE_SIZE, allResults.length - results.length)} resultados más</button>` : "");
     bindCardClicks(results);
+    const sortBtn = document.getElementById("sortToggleBtn");
+    if (sortBtn) sortBtn.addEventListener("click", toggleSortMode);
+    const moreBtn = document.getElementById("loadMoreBtn");
+    if (moreBtn) moreBtn.addEventListener("click", () => {
+      state.resultsLimit += PAGE_SIZE;
+      renderSearch();
+    });
   }
 
   function cardHtml(item){
@@ -309,7 +357,7 @@
 
   // ---------- Render: Favoritos ----------
   function renderFavorites(){
-    const items = ALL_CODES.filter(i => favorites.has(keyOf(i)));
+    const items = applySortMode(ALL_CODES.filter(i => favorites.has(keyOf(i))));
     if (items.length === 0){
       el.content.innerHTML = emptyState(
         `<path d="M12 20s-7-4.35-9.5-8.5C.8 8.1 2.6 4.8 6 4.8c2 0 3.3 1.1 4 2.1a4.9 4.9 0 0 1 4-2.1c3.4 0 5.2 3.3 3.5 6.7C19 15.65 12 20 12 20Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>`,
@@ -319,9 +367,11 @@
       return;
     }
     el.content.innerHTML =
-      `<div class="section-title">${items.length} favorito${items.length===1?"":"s"}</div>` +
+      `<div class="section-title row-between"><span>${items.length} favorito${items.length===1?"":"s"}</span>${sortToggleHtml()}</div>` +
       `<div class="result-list">${items.map(cardHtml).join("")}</div>`;
     bindCardClicks(items);
+    const sortBtn = document.getElementById("sortToggleBtn");
+    if (sortBtn) sortBtn.addEventListener("click", toggleSortMode);
   }
 
   function toggleFavorite(key){
@@ -366,7 +416,7 @@
         </p>
         <button class="btn ghost" id="forceUpdateBtn" style="width:100%;">🔄 Actualizar app a la última versión</button>
       </div>
-      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.3.5</p>
+      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.3.8</p>
       <p class="hint" style="text-align:center;margin:6px 0 0;">
         <a href="mailto:doctorize@gmail.com?subject=CIEfinder%20-%20Incidencia%20o%20sugerencia" style="color:var(--navy);text-decoration:underline;">✉️ Incidencias y sugerencias</a>
       </p>
@@ -574,6 +624,7 @@
   function goToSearch(query){
     state.view = "search";
     state.query = query;
+    state.resultsLimit = PAGE_SIZE;
     el.searchInput.value = query;
     el.clearBtn.style.display = query ? "inline-block" : "none";
     render();
@@ -591,12 +642,14 @@
       el.chips.forEach(c => c.classList.remove("active"));
       chip.classList.add("active");
       state.filter = chip.getAttribute("data-filter");
+      state.resultsLimit = PAGE_SIZE;
       renderSearch();
     });
   });
 
   el.searchInput.addEventListener("input", (e) => {
     state.query = e.target.value;
+    state.resultsLimit = PAGE_SIZE;
     el.clearBtn.style.display = state.query ? "inline-block" : "none";
     renderSearch();
     scheduleHistory(state.query);
@@ -604,6 +657,7 @@
 
   el.clearBtn.addEventListener("click", () => {
     state.query = "";
+    state.resultsLimit = PAGE_SIZE;
     el.searchInput.value = "";
     el.clearBtn.style.display = "none";
     el.searchInput.focus();

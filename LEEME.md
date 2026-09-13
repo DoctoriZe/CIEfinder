@@ -1,4 +1,4 @@
-# CIEfinder by DoctoriZe · v1.3.5
+# CIEfinder by DoctoriZe · v1.3.8
 
 App web (PWA) para buscar códigos CIE-9 y CIE-10, en español e inglés,
 con historial de búsquedas y favoritos. Funciona sin conexión una vez instalada.
