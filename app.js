@@ -416,7 +416,7 @@
         </p>
         <button class="btn ghost" id="forceUpdateBtn" style="width:100%;">🔄 Actualizar app a la última versión</button>
       </div>
-      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.3.8</p>
+      <p class="hint" style="text-align:center;margin:4px 0 0;">CIEfinder by DoctoriZe · v1.3.9</p>
       <p class="hint" style="text-align:center;margin:6px 0 0;">
         <a href="mailto:doctorize@gmail.com?subject=CIEfinder%20-%20Incidencia%20o%20sugerencia" style="color:var(--navy);text-decoration:underline;">✉️ Incidencias y sugerencias</a>
       </p>
@@ -665,9 +665,51 @@
   });
 
   // ---------- Service worker ----------
+  // Muestra un aviso fijo (no un toast, que desaparece solo) cuando detecta
+  // que ya se instaló y activó una versión nueva de la app en segundo plano.
+  // No recarga automáticamente para no interrumpir una búsqueda en curso.
+  function showUpdateBanner(){
+    if (document.getElementById("updateBanner")) return; // ya se está mostrando
+    const banner = document.createElement("div");
+    banner.id = "updateBanner";
+    banner.className = "update-banner";
+    banner.innerHTML = `
+      <span>🔄 Hay una nueva versión de CIEfinder lista</span>
+      <button id="updateBannerBtn">Actualizar ahora</button>
+    `;
+    document.body.appendChild(banner);
+    document.getElementById("updateBannerBtn").addEventListener("click", () => location.reload());
+  }
+
   if ("serviceWorker" in navigator){
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("service-worker.js").catch(()=>{});
+      navigator.serviceWorker.register("service-worker.js").then(reg => {
+        // Si ya hay una versión instalada esperando (poco frecuente, ya que
+        // el propio service worker se activa solo), avisa de inmediato.
+        if (reg.waiting) showUpdateBanner();
+
+        reg.addEventListener("updatefound", () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener("statechange", () => {
+            if (newWorker.state === "activated") showUpdateBanner();
+          });
+        });
+
+        // El navegador solo revisa si hay versión nueva al cargar la página,
+        // así que si la app se queda abierta, forzamos esa comprobación
+        // cada hora y cada vez que el usuario vuelve a la app.
+        setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") reg.update().catch(() => {});
+        });
+      }).catch(() => {});
+
+      // Si otra pestaña/instancia ya forzó la actualización y esta tomó el
+      // control, también avisamos aquí en vez de recargar sin preguntar.
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        showUpdateBanner();
+      });
     });
   }
 
